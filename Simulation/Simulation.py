@@ -1,0 +1,221 @@
+"""
+The experiment "engine".
+"""
+import random as rd
+import pygame
+import numpy as np
+import matplotlib.pyplot as plt
+
+from World.WorldInformation import BallWorldInformation
+from World.Process import BallArenaProcess, StochasticBallArenaProcess
+from World.Initializer import RandomBallInitializer, UniformPositionNormalVelocityInitializer
+from Filter.Observation import MultiBallObservationModel
+from Filter import ParticleSet, BallEstimator
+from Sensor import MultiBallSensor
+from .SimulationParameters import SimulationParameters
+
+class Simulation:
+    p: SimulationParameters
+
+    def __init__(self, p: SimulationParameters):
+        self.p = p
+
+    def run(self):
+        # the actual world
+        world = BallWorldInformation(
+            width = self.p.width,
+            height = self.p.height,
+            gravity = self.p.gravity,
+            ball_radius = self.p.ball_radius,
+            bounce_discount = self.p.bounce_discount,
+            air_discount = self.p.air_discount,
+            ground_discount = self.p.ground_discount
+        )
+
+        initializer = UniformPositionNormalVelocityInitializer(
+            np.diag(self.p.initial_velocity_variance).astype(float),
+            world
+        )
+
+        states: list[np.ndarray] = [initializer.generate(n) for n in range(self.p.number_of_balls)]
+
+        sensor = MultiBallSensor(
+            np.diag(self.p.sensor_variance).astype(float),
+            seed = self.p.seed
+        )
+
+        process: BallArenaProcess = BallArenaProcess(world)
+
+        # our assumptions about the world
+        assumed_world = BallWorldInformation(
+            width = self.p.assumed_width,
+            height = self.p.assumed_height,
+            gravity = self.p.assumed_gravity,
+            ball_radius = self.p.assumed_ball_radius,
+            bounce_discount = self.p.assumed_bounce_discount,
+            air_discount = self.p.assumed_air_discount,
+            ground_discount = self.p.assumed_ground_discount
+        )
+
+        assumed_deterministic_process = BallArenaProcess(assumed_world)
+        
+        assumed_transition_process = StochasticBallArenaProcess(
+            assumed_deterministic_process,
+            np.array(self.p.transition_velocity_variance).astype(float)
+        )
+
+        observation_model = MultiBallObservationModel(
+            np.array(self.p.assumed_sensor_variance).astype(float)
+        )
+
+        assumed_initialization = UniformPositionNormalVelocityInitializer(
+            np.diag(self.p.assumed_initial_velocity_variance).astype(float),
+            assumed_world
+        )
+
+        particle_set: ParticleSet = ParticleSet(
+            self.p.number_of_particles,
+            assumed_initialization,
+            assumed_transition_process,
+            assumed_deterministic_process,
+            observation_model,
+            self.p.seed
+        )
+
+        est = BallEstimator()
+
+        # pygame window parameters
+        DIM = 1000
+        MARGIN = 0.1
+        INNER = DIM - 2 * DIM * MARGIN
+        BORDER = MARGIN * DIM
+
+        running = True
+        observation_missing = False
+        
+        screen = None
+        clock = None
+        
+        if self.p.live_show:
+            pygame.init()
+            screen = pygame.display.set_mode((DIM,DIM))
+            clock = pygame.time.Clock()
+
+        # previously seen states
+        states_backlog = []
+        est_states_backlog = []
+
+        states_history = []
+        estimated_states_history = []
+
+        steps = 0
+        while running:
+            observations = sensor.sense(states)
+            if not observation_missing:
+                estimated_states = est.estimate(
+                    self.p.assumed_number_of_balls,
+                    particle_set
+                )
+            else:
+                # if the observation is missing, just propagate old estimates
+                estimated_states = assumed_deterministic_process.transition(estimated_states, 1 / self.p.measurements_per_second)
+            
+            # Condensation Algorithm
+            if not observation_missing:
+                particle_set.resample()
+            particle_set.transition(1 / self.p.measurements_per_second, deterministic = observation_missing)
+            if not observation_missing:
+                particle_set.observe(observations)
+
+            states_history.append(states)
+            estimated_states_history.append(estimated_states)
+            
+            states_backlog.append(states)
+            est_states_backlog.append(estimated_states)
+            while len(est_states_backlog) > self.p.visualize_tail_length:
+                est_states_backlog.pop(0)
+                states_backlog.pop(0)
+
+            states = process.transition(states, 1 / self.p.measurements_per_second)
+            
+            if self.p.live_show:
+                # Live Visualization
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_d:
+                            observation_missing = True
+                    elif event.type == pygame.KEYUP:
+                        if event.key == pygame.K_d:
+                            observation_missing = False
+                    
+                screen.fill("black")
+                pygame.draw.rect(screen, "grey", [BORDER, BORDER, INNER, INNER])
+                if self.p.show_actual_positions:
+                    for (i, _states) in enumerate(states_backlog):
+                        for (ball_num, ball) in enumerate(_states):
+                            pos_x = (ball[0] / world.width) * INNER + BORDER
+                            pos_y = INNER - (ball[1] / world.height) * INNER + BORDER
+                            rad = (world.ball_radius / world.width) * INNER
+                            pygame.draw.circle(screen, (0,0,255 * i/self.p.visualize_tail_length), [pos_x, pos_y], rad)
+
+                for (i, _states) in enumerate(est_states_backlog):
+                    for (ball_num, ball) in enumerate(_states):
+                        pos_x = (ball[0] / world.width) * INNER + BORDER
+                        pos_y = INNER - (ball[1] / world.height) * INNER + BORDER
+                        rad = (world.ball_radius / world.width) * INNER
+                        pygame.draw.circle(screen, (0,255 * i/self.p.visualize_tail_length,0), [pos_x, pos_y], rad)
+
+                if self.p.show_observations:
+                    for (ball_num, ball) in enumerate(observations):
+                        pos_x = (ball[0] / world.width) * INNER + BORDER
+                        pos_y = INNER - (ball[1] / world.height) * INNER + BORDER
+                        rad = 5
+                        pygame.draw.circle(screen, "red", [pos_x, pos_y], rad)
+
+                if self.p.show_particles:
+                    ma = (max(particle_set.weights))
+                    mi = (min(particle_set.weights))
+                    for (p,w) in zip(particle_set.particles, particle_set.weights):
+                        pos = p[:2]
+                        pos_x = (pos[0] / world.width) * INNER + BORDER
+                        pos_y = INNER - (pos[1] / world.height) * INNER + BORDER
+                        rad = 3
+                        coeff = (w - mi) / max((ma - mi),0.0001)
+                        pygame.draw.circle(screen, [coeff*255,  coeff*255, 0], [pos_x, pos_y], rad)
+
+                pygame.display.flip()
+                clock.tick(60)
+
+            steps += 1
+            if steps > self.p.max_steps:
+                running = False
+
+        # states_history, estimated_states_history
+        if self.p.show_summary_plots:
+            states_history = np.array(states_history)
+            estimated_states_history = np.array(estimated_states_history)
+            print(states_history.shape, estimated_states_history.shape)
+
+            labels = ["x position over time", "y position over time", "x velocity over time", "y velocity over time"]
+            axlabels = ["x","y","vx","vy"]
+
+            fig, axs = plt.subplots(2, 2)
+            fig.suptitle("actual (blue) vs estimated (green) parameters")
+
+            for (dim,ax) in zip(range(states_history.shape[2]), axs.flat):
+                ax.set_title(labels[dim])
+                ax.set_xlabel("Time Step")
+                ax.set_ylabel(axlabels[dim])
+                for ball in range(states_history.shape[1]):
+                    meas = states_history[:,ball,dim]
+                    ax.plot(meas, "bo", markersize=2)
+                    for eball in range(estimated_states_history.shape[1]):
+                        meas = estimated_states_history[:,eball,dim]
+                        ax.plot(meas, "go", markersize=2)
+            
+            plt.show()
+                
+        if self.p.live_show:
+            pygame.quit()
