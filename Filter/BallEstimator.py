@@ -5,7 +5,7 @@ ParticleSet.
 import numpy as np
 
 from .ParticleSet import ParticleSet
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans # type: ignore
 
 class BallEstimator:
 

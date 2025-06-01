@@ -27,6 +27,7 @@ class SimulationParameters:
     assumed_sensor_variance: tuple[float, float] = (5, 5)
     assumed_initial_velocity_variance: tuple[float, float] = (100, 100)
     transition_velocity_variance: tuple[float, float] = (2,2)
+    
     measurements_per_second: int = 30
     number_of_particles: int = 2000
 
@@ -37,5 +38,5 @@ class SimulationParameters:
     show_particles: bool = True
     show_observations: bool = True
     show_actual_positions: bool = True
-    show_summary_plots: bool = True
+    show_summary_plots: bool = False
     
