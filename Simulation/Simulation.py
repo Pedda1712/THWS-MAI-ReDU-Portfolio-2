@@ -67,7 +67,8 @@ class Simulation:
         )
 
         observation_model = MultiBallObservationModel(
-            np.array(self.p.assumed_sensor_variance).astype(float)
+            np.array(self.p.assumed_sensor_variance).astype(float),
+            np.array(self.p.transition_velocity_variance).astype(float)
         )
 
         assumed_initialization = UniformPositionNormalVelocityInitializer(

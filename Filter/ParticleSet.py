@@ -80,4 +80,9 @@ class ParticleSet(Generic[S, O]):
         """
         Fourth step of condensation algorithm.
         """
-        self.weights = self.observation_model.observe(self.particles, observation)
+        self.weights, modified_states = self.observation_model.observe(self.particles, observation, self.seed)
+
+        self.seed += self.N * 2
+
+        if modified_states:
+            self.particles = modified_states
