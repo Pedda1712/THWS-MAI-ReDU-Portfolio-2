@@ -174,7 +174,7 @@ class Simulation:
                     for (ball_num, ball) in enumerate(_states):
                         pos_x = (ball[0] / world.width) * INNER + BORDER
                         pos_y = INNER - (ball[1] / world.height) * INNER + BORDER
-                        rad = (world.ball_radius / world.width) * INNER
+                        rad = (assumed_world.ball_radius / world.width) * INNER
                         pygame.draw.circle(screen[0], (0,int(255 * i/self.p.visualize_tail_length),0), [pos_x, pos_y], rad)
 
                 if self.p.show_observations:
