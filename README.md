@@ -10,14 +10,11 @@ observed erroneous positions over time.
 ## Thoughts on State and Observation Model
 The state in our case contains the position and velocity of one ball. The division into multiple balls is handled in the evaluation step.
 
-The evaluation step enforces a constraint, where for N observations, each observation is allowed to 'give out' 1/N weight. An observation
-will distribute its weight to the particles that have it as its nearest observation according to normal distributions centered at the particle positions. In this way, the resampling step will (in expectation) generate an equal amount of particles for each observation.
+The evaluation step enforces a constraint, where for N observations, each observation is allowed to 'give out' 1/N weight. This is done by taking the probabilities of one observation to all particles and normalizing these by themselves. The particle weight is then the mean of this score over all observations. In this way, the resampling step will (in expectation) generate an equal amount of particles for each observation.
 
 *Note*: If this partitioning step is skipped, and we simply sum the values of the normal distributions at the observations for each
 particle, we will wind up with unequal particle counts for each ball. In our observations, this situation quickly degenerates to
-having all particles allocated for one ball. This makes sense from the theoretical perspective: Only summing the normal distributions
-is equivalent to the assumption of having only *one* actual ball and N observations of it: Over time, the particle cloud will move to the
-most likely position instead of dividing itself amongst the N most likely positions.
+having all particles allocated for one ball. 
 
 ## Code Architecture
 Here, we will briefly review the purpose of the individual code modules and sketch their composition.
