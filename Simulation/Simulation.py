@@ -67,8 +67,7 @@ class Simulation:
         )
 
         observation_model = MultiBallObservationModel(
-            np.array(self.p.assumed_sensor_variance).astype(float),
-            np.array(self.p.transition_velocity_variance).astype(float)
+            np.array(self.p.assumed_sensor_variance).astype(float)
         )
 
         assumed_initialization = UniformPositionNormalVelocityInitializer(
@@ -103,7 +102,7 @@ class Simulation:
         if self.p.live_show:
             pygame.init()
             pygame.font.init() 
-            my_font = [pygame.font.SysFont('Comic Sans MS', 30)]
+            my_font = [pygame.font.SysFont('monospace', 30)]
             screen = [pygame.display.set_mode((DIM,DIM))]
             clock = [pygame.time.Clock()]
 

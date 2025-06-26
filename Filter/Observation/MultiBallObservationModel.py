@@ -6,9 +6,8 @@ import scipy
 
 class MultiBallObservationModel(BaseObservationModel):
     variances: np.ndarray
-    reinitialization_variances: np.ndarray
 
-    def __init__(self, variances: np.ndarray, velocity_reinitialization_variances: np.ndarray):
+    def __init__(self, variances: np.ndarray):
         """
         Multi-Ball Observation model.
 
@@ -16,15 +15,9 @@ class MultiBallObservationModel(BaseObservationModel):
           variances: variance in the statistical classifier (assume: normal distribution with mean at particle position)
             larger values will result in more equal weightings
             (how much uncertainty we assume to be in the observation process)
-          velocity_reinitialization_variance:
-            the observation model will try to 'fix' degenerate situations (orphan observations) by reinitializing some particles
-            these particles will have their velocity initialized with this variance
         """
         if variances.shape != (2,):
             raise RuntimeError(f"observation variance must have shape (2,). got {variances.shape}")
-        if velocity_reinitialization_variances.shape != (2,):
-            raise RuntimeError(f"velocity reinitialization variance must have shape (2,). got {velocity_reinitialization_variances.shape}")
-        self.velocity_reinitialization_variances = np.diag(velocity_reinitialization_variances)
         self.variances = np.diag(variances)
         self.icov = np.linalg.pinv(self.variances)
         self.det = np.linalg.det(self.variances)
