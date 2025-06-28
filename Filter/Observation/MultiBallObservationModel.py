@@ -2,8 +2,6 @@ import numpy as np
 from typing import Callable, Optional
 from .BaseObservationModel import BaseObservationModel
 
-import scipy
-
 class MultiBallObservationModel(BaseObservationModel):
     variances: np.ndarray
 

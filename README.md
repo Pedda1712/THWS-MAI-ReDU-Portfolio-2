@@ -44,6 +44,6 @@ The ```Simulation``` class orchestrates the entire process: It will initialize t
 Each step is visualized using PyGame, and summary plots are generated at the end of the experiment.
 
 ## Running
-Required packages: ```numpy matplotlib pygame```.
+Install the requirements from `requirements.txt`.
 
 Run the ```__gui__.py``` script to be able to tune parameters and visualize the results.
